@@ -183,9 +183,10 @@
       var content;
       for (var quality = 0.94; quality >= 0.49; quality -= 0.1) {
         content = canvas.toDataURL("image/jpeg", quality).split(",")[1];
-        if (atob(content).length <= 750000) { break; }
+        // Leave room for base64 and the JSON wrapper below GitHub's 1 MB file limit.
+        if (atob(content).length <= 720000) { break; }
       }
-      if (!content || atob(content).length > 750000) { throw new Error("Image is too detailed to upload. Crop it or choose a smaller image."); }
+      if (!content || atob(content).length > 720000) { throw new Error("Image is too detailed to upload. Crop it or choose a smaller image."); }
       return { content: content, mimeType: "image/jpeg" };
     } finally { URL.revokeObjectURL(url); }
   }
