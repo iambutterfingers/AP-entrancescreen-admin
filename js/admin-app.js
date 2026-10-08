@@ -1172,6 +1172,9 @@
   }
 
   function renderMedia() {
+    // Remote media are references for rotation, without local photo metadata.
+    // This editor stays on the Pi and must not interrupt the shared form load.
+    if (window.DashboardRemote && window.DashboardRemote.enabled) { return; }
     var grid = byId("mediaGrid");
     grid.innerHTML = "";
     updateMediaTagFilterOptions();
@@ -2211,6 +2214,8 @@
   }
 
   function renderPageBuilder() {
+    // Template content stays on the Pi; remote placeholders are not editable pages.
+    if (window.DashboardRemote && window.DashboardRemote.enabled) { return; }
     renderCustomPageList();
     var page = selectedPage();
     if (!page && state.customPages.length) {
