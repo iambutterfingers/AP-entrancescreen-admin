@@ -1172,9 +1172,6 @@
   }
 
   function renderMedia() {
-    // Remote media are references for rotation, without local photo metadata.
-    // This editor stays on the Pi and must not interrupt the shared form load.
-    if (window.DashboardRemote && window.DashboardRemote.enabled) { return; }
     var grid = byId("mediaGrid");
     grid.innerHTML = "";
     updateMediaTagFilterOptions();
@@ -1435,11 +1432,14 @@
     byId("mediaFocalX").disabled = disableFocal;
     byId("mediaFocalY").disabled = disableFocal;
     byId("deleteMediaItem").disabled = !media || !!media.readOnly;
+    byId("replaceMediaImage").disabled = !media || !!media.readOnly || media.canReplace === false;
     updateFocalPreview(media);
     renderMediaTagPicker();
   }
 
   function queueMediaAutosave() {
+    // Each remote save waits for a receipt; use the explicit Save button there.
+    if (window.DashboardRemote && window.DashboardRemote.enabled) { return; }
     if (!state.selectedMediaId) {
       return;
     }
@@ -1501,7 +1501,7 @@
       ? "Are you sure you want to delete \"" + ((mediaById(idsToDelete[0]) || {}).title || "this item") + "\"?"
       : "Are you sure you want to delete " + idsToDelete.length + " selected media items?";
     confirmDelete(msg, function () {
-      var promises = idsToDelete.map(function (id) {
+      var promises = window.DashboardRemote && window.DashboardRemote.enabled ? [api("/api/media-library/remote-delete", { method: "POST", body: JSON.stringify({ mediaIds: idsToDelete }) })] : idsToDelete.map(function (id) {
         return api("/api/media-library/" + encodeURIComponent(id), { method: "DELETE" });
       });
       Promise.all(promises).then(function () {
@@ -1575,7 +1575,7 @@
       renderMedia();
       renderRotation();
       renderPageBuilder();
-      flash("Media uploaded.", "success");
+      flash(payload.message || "Media uploaded.", "success");
     }).catch(function (error) {
       flash(error.message, "error");
     });
@@ -6237,6 +6237,27 @@
 
   document.addEventListener("DOMContentLoaded", function () {
     bindEvents();
+    byId("replaceMediaImage").addEventListener("click", function () { byId("replaceMediaInput").click(); });
+    byId("replaceMediaInput").addEventListener("change", async function () {
+      var input = this, file = input.files[0], selected = state.selectedMediaId;
+      if (!file || !selected) { return; }
+      var button = byId("replaceMediaImage"); button.disabled = true;
+      try {
+        var form = new FormData();
+        if (window.DashboardRemote && window.DashboardRemote.enabled) { form.append("media", file); }
+        else {
+          var prepared = await window.DashboardRemote.prepareImage(file);
+          var bytes = Uint8Array.from(atob(prepared.content), function (c) { return c.charCodeAt(0); });
+          form.append("media", new Blob([bytes], { type: "image/jpeg" }), "replacement.jpg");
+        }
+        var result = await api("/api/media-library/" + encodeURIComponent(selected) + "/replace", { method: "POST", body: form });
+        var updated = result.item || result;
+        if (updated.id) { state.media = state.media.map(function (item) { return item.id === selected ? updated : item; }); }
+        renderMedia(); renderRotation();
+        flash(result.message || "Image replaced. Its existing rotation and schedule are preserved.", "success");
+      } catch (error) { flash(error.message, "error"); }
+      finally { input.value = ""; button.disabled = false; }
+    });
     (window.DashboardRemote ? window.DashboardRemote.ready : Promise.resolve()).then(loadBootstrap)
       .then(function () {
         initialiseSelections();

@@ -6,9 +6,11 @@
     "/api/overlays": "overlays", "/api/rotation": "rotation",
     "/api/celebration-children": "celebrationUpcoming", "/api/celebration-children/upcoming": "celebrationUpcoming",
     "/api/celebration-children/current": "celebrationCurrent", "/api/celebration-post": "celebrationUpcoming",
-    "/api/classdojo/events/admin": "classdojo" };
+    "/api/classdojo/events/admin": "classdojo", "/api/class-order": "classOrder",
+    "/api/admin/settings": "settings", "/api/media-library": "mediaLibrary" };
   function resourceFor(path) {
     if (routes[path]) { return routes[path]; }
+    if (/^\/api\/media-library\/[a-zA-Z0-9_-]+(?:\/replace)?$/.test(path)) { return "mediaLibrary"; }
     if (/^\/api\/classdojo\/events\/(refresh-classes|refresh-events|groups\/merge|groups\/[a-zA-Z0-9_-]+\/(rename|accept|unlink))$/.test(path)) { return "classdojo"; }
     var match = /^\/api\/page-settings\/([a-z_]+)$/.exec(path);
     return match ? "page:" + match[1] : null;
@@ -18,6 +20,7 @@
   var saveChain = Promise.resolve(), resolveReady;
   var ready = remote ? new Promise(function (resolve) { resolveReady = resolve; }) : Promise.resolve();
   var panel, connectionStatus, syncStatus;
+  var assetPreviews = {};
   function copy(value) { return JSON.parse(JSON.stringify(value)); }
   function encode(value) { return btoa(Array.from(new TextEncoder().encode(JSON.stringify(value, null, 2) + "\n"), function (b) { return String.fromCharCode(b); }).join("")); }
   function decode(value) { return JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(value.replace(/\s/g, "")), function (c) { return c.charCodeAt(0); }))); }
@@ -117,7 +120,7 @@
     var item = documentState.snapshot.resources[key];
     var payload = item ? copy(item.payload) : {};
     (documentState.commands || []).forEach(function (command) {
-      if (resourceFor(command.path) === key && command.path !== "/api/celebration-post" && key !== "classdojo") {
+      if (resourceFor(command.path) === key && command.path !== "/api/celebration-post" && key !== "classdojo" && key !== "settings" && key !== "mediaLibrary") {
         payload = command.method === "DELETE" ? {} : copy(command.body);
       }
     });
@@ -126,6 +129,10 @@
   function bootstrap() {
     var value = copy(documentState.snapshot.bootstrap);
     value.rotation = projected("rotation");
+    var library = documentState.snapshot.resources.mediaLibrary;
+    value.media = (library ? library.payload.items : value.media || []).map(function (item) {
+      return Object.assign({ focalPoint: { x: 50, y: 50 }, tags: [] }, item, { url: assetPreviews[item.remoteAsset] || "media-placeholder.svg" });
+    });
     value.builtInPages.forEach(function (page) {
       var override = projected("page:" + page.key);
       page.title = override.title || page.defaultTitle;
@@ -136,12 +143,85 @@
     value.contentVersions = copy(contentVersions);
     return value;
   }
+  function binary64(bytes) { return btoa(Array.from(new Uint8Array(bytes), function (b) { return String.fromCharCode(b); }).join("")); }
+  function bytes64(value) { return Uint8Array.from(atob(value), function (c) { return c.charCodeAt(0); }); }
+  async function encryptSettings(changes) {
+    var encryption = documentState.snapshot.resources.settings.payload.encryption;
+    if (!crypto.subtle || !encryption) { throw new Error("Secure settings are unavailable. Update the Pi and reload this page."); }
+    var publicKey = await crypto.subtle.importKey("spki", bytes64(encryption.spki), { name: "RSA-OAEP", hash: "SHA-256" }, false, ["wrapKey"]);
+    var aes = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, true, ["encrypt"]);
+    var iv = crypto.getRandomValues(new Uint8Array(12));
+    var ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv: iv, additionalData: new TextEncoder().encode(encryption.keyId) }, aes, new TextEncoder().encode(JSON.stringify(changes)));
+    var wrapped = await crypto.subtle.wrapKey("raw", aes, publicKey, "RSA-OAEP");
+    return { encrypted: { keyId: encryption.keyId, wrappedKey: binary64(wrapped), iv: binary64(iv), ciphertext: binary64(ciphertext) } };
+  }
+  async function loadMediaPreviews() {
+    var library = documentState.snapshot.resources.mediaLibrary;
+    if (!library) { return; }
+    await Promise.all(library.payload.items.filter(function (item) { return item.remoteAsset && !assetPreviews[item.remoteAsset]; }).map(async function (item) {
+      try {
+        if (!/^uploads\/[a-f0-9-]{36}\.json$/.test(item.remoteAsset)) { return; }
+        var file = await github("/repos/" + repository + "/contents/" + item.remoteAsset + "?ref=" + encodeURIComponent(branch));
+        if (file.encoding !== "base64" || file.size > 1010000) { return; }
+        var asset = decode(file.content);
+        if (/^image\/(jpeg|png|webp)$/.test(asset.mimeType) && typeof asset.content === "string" && asset.content.length <= 1000000) {
+          assetPreviews[item.remoteAsset] = "data:" + asset.mimeType + ";base64," + asset.content;
+        }
+      } catch (_) { /* A missing preview must not prevent loading the saved admin forms. */ }
+    }));
+  }
+  async function prepareImage(file) {
+    if (!file.type.startsWith("image/") || file.size > 30 * 1024 * 1024) { throw new Error("Choose images under 30 MB. Remote video uploads are not supported."); }
+    var url = URL.createObjectURL(file);
+    try {
+      var image = new Image();
+      await new Promise(function (resolve, reject) { image.onload = resolve; image.onerror = function () { reject(new Error("This image format cannot be opened. Choose JPEG or PNG.")); }; image.src = url; });
+      var canvas = document.createElement("canvas");
+      var scale = Math.min(1, 2048 / Math.max(image.naturalWidth, image.naturalHeight));
+      canvas.width = Math.max(1, Math.round(image.naturalWidth * scale)); canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+      var ctx = canvas.getContext("2d"); ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+      var content;
+      for (var quality = 0.94; quality >= 0.49; quality -= 0.1) {
+        content = canvas.toDataURL("image/jpeg", quality).split(",")[1];
+        if (atob(content).length <= 750000) { break; }
+      }
+      if (!content || atob(content).length > 750000) { throw new Error("Image is too detailed to upload. Crop it or choose a smaller image."); }
+      return { content: content, mimeType: "image/jpeg" };
+    } finally { URL.revokeObjectURL(url); }
+  }
+  async function uploadImages(path, options) {
+    var files = options.body.getAll("media");
+    if (!files.length || files.length > 8) { throw new Error("Choose one to eight images at a time."); }
+    var replacement = /\/([^/]+)\/replace$/.exec(path);
+    if (replacement && files.length !== 1) { throw new Error("Choose one replacement image."); }
+    var latest = await readDocument();
+    if (latest.data.commands.some(function (c) { return resourceFor(c.path) === "mediaLibrary"; })) { throw new Error("A media save is waiting for the Pi. Wait for it to apply before uploading again."); }
+    if (!latest.data.snapshot.resources.mediaLibrary || contentVersions.mediaLibrary !== latest.data.snapshot.resources.mediaLibrary.version) { throw new Error("The media library changed. Reload content before uploading."); }
+    var entries = [];
+    for (var file of files) {
+      message("Preparing and uploading " + file.name + "…");
+      var asset = await prepareImage(file), assetPath = "uploads/" + crypto.randomUUID() + ".json";
+      var digest = await crypto.subtle.digest("SHA-256", bytes64(asset.content));
+      var hash = Array.from(new Uint8Array(digest), function (b) { return b.toString(16).padStart(2, "0"); }).join("");
+      await github("/repos/" + repository + "/contents/" + assetPath, { method: "PUT", body: { message: "Upload dashboard image", branch: branch, content: encode(asset) } });
+      assetPreviews[assetPath] = "data:image/jpeg;base64," + asset.content;
+      entries.push({ path: assetPath, sha256: hash, title: file.name.replace(/\.[^.]+$/, "").slice(0, 300) });
+    }
+    var result = await enqueue("/api/media-library/remote-import", { method: "POST", body: JSON.stringify({ items: entries, replacementId: replacement ? replacement[1] : undefined }) });
+    result.items = [];
+    result.message = replacement ? "Replacement saved to GitHub. It will keep the menu's existing rotation and schedule. Wait for Applied on Pi, then Reload content." : "Images saved to GitHub. Wait for Applied on Pi, then Reload content to add them to the rotation.";
+    if (replacement) { result.item = Object.assign({}, bootstrap().media.find(function (m) { return m.id === replacement[1]; }), { url: assetPreviews[entries[0].path] }); }
+    message(result.message);
+    return result;
+  }
   async function enqueue(path, options) {
     var key = resourceFor(path);
     var allowed = key && path !== "/api/attendance" && path !== "/api/classdojo/events/admin" &&
       ((options.method === "POST") || ((key.indexOf("page:") === 0 || key.indexOf("celebration") === 0) && options.method === "DELETE"));
     if (!allowed) { throw new Error("This action is available through Raspberry Pi Connect at school."); }
     var body = options.body ? JSON.parse(options.body) : {};
+    var submittedBody = copy(body);
+    if (key === "settings") { body = await encryptSettings(body.changes); }
     if (key === "notices") { body = { message: body.message || "", notes: body.notes || [] }; }
     if (body.children) {
       body.children = body.children.map(function (child) {
@@ -166,7 +246,7 @@
         ownCommands[command.id] = key;
         documentState = data;
         updateStatus(data);
-        return key === "rotation" ? projected(key) : { success: true, queued: true, settings: body, message: "Request saved to GitHub. Waiting for Pi." };
+        return saveResult(key, path, submittedBody);
       } catch (error) {
         if ((error.status === 409 || error.status === 422) && attempt < 2) { continue; }
         // The request may have succeeded before a network failure: do not blindly retry it.
@@ -175,7 +255,7 @@
             var check = await readDocument();
             if (check.data.commands.some(function (c) { return c.id === command.id; }) || check.data.receipts.some(function (r) { return r.id === command.id; })) {
               ownCommands[command.id] = key; documentState = check.data; updateStatus(documentState);
-              return key === "rotation" ? projected(key) : { success: true, queued: true, settings: body, message: "Request saved to GitHub. Waiting for Pi." };
+              return saveResult(key, path, submittedBody);
             }
           } catch (_) { /* Show uncertainty and require checking before saving again. */ }
           throw new Error("Save confirmation was interrupted. Check sync status or reload before saving again.");
@@ -184,21 +264,43 @@
       }
     }
   }
+  function saveResult(key, path, body) {
+    if (key === "rotation") { return projected(key); }
+    var result = { success: true, queued: true, message: "Request saved to GitHub. Waiting for Pi." };
+    if (key === "mediaLibrary") {
+      var items = bootstrap().media;
+      if (path === "/api/media-library/bulk-tags") {
+        result.updated = items.filter(function (item) { return body.mediaIds.includes(item.id); }).map(function (item) { return Object.assign({}, item, { tags: Array.from(new Set(item.tags.concat(body.tags))) }); });
+      } else if (!/\/(remote-import|remote-delete)$/.test(path)) {
+        return Object.assign({}, items.find(function (item) { return path.endsWith("/" + item.id); }) || {}, body, result);
+      }
+    } else if (key !== "settings") { result.settings = body; }
+    return result;
+  }
   function api(path, options) {
     if (!connected) { return Promise.reject(new Error("Connect to GitHub first.")); }
     options = options || {};
     if (options.method && options.method !== "GET") {
-      var operation = saveChain.then(function () { return enqueue(path, options); });
+      var operation = saveChain.then(function () { return /\/api\/media-library\/(upload|[^/]+\/replace)$/.test(path) ? uploadImages(path, options) : enqueue(path, options); });
       saveChain = operation.catch(function () {});
       return operation;
     }
-    if (path === "/api/admin/bootstrap") { return Promise.resolve(bootstrap()); }
+    if (path === "/api/admin/bootstrap") { return loadMediaPreviews().then(bootstrap); }
+    if (path === "/api/health") {
+      return poll().then(function () {
+        var health = copy(documentState.snapshot.health || {});
+        var seen = documentState.pi && documentState.pi.seenAt;
+        health.summary = (health.summary || "Waiting for the Pi to publish dashboard health.") + (seen ? " Pi report: " + new Date(seen).toLocaleString() + "." : "");
+        if (!seen || Date.now() - Date.parse(seen) > 10 * 60 * 1000) { health.status = "warning"; health.summary = "Pi has not checked in recently. These health readings may be out of date. " + health.summary; }
+        return health;
+      });
+    }
     if (path === "/api/celebration-children") {
       return Promise.resolve({ current: Object.keys(projected("celebrationCurrent")).length ? projected("celebrationCurrent") : null,
         upcoming: Object.keys(projected("celebrationUpcoming")).length ? projected("celebrationUpcoming") : null });
     }
     if (path === "/api/class-order") {
-      return Promise.resolve({ order: documentState.snapshot.bootstrap.classOrder || [], meta: documentState.snapshot.bootstrap.classMeta || {} });
+      return Promise.resolve(documentState.snapshot.resources.classOrder ? projected("classOrder") : { order: documentState.snapshot.bootstrap.classOrder || [], meta: documentState.snapshot.bootstrap.classMeta || {} });
     }
     if (path === "/api/classdojo/auth-status") {
       return Promise.resolve({ needs_code: !!documentState.snapshot.bootstrap.classDojoNeedsCode,
@@ -274,13 +376,17 @@
     window.setInterval(poll, 20000);
     document.addEventListener("visibilitychange", function () { if (!document.hidden) { poll(); } });
     // Retain tabs and familiar layout, while making Pi-only controls unambiguous.
-    ["mediaUploadDropzone", "customPageList", "tvPowerOnNow", "dashboardHealthSummary", "classOrderList", "classDojoCodeSection", "tvPowerRules"].forEach(function (id) {
+    ["customPageList", "tvPowerOnNow", "classDojoCodeSection", "tvPowerRules"].forEach(function (id) {
       var section = document.getElementById(id).closest("section.admin-card");
       section.classList.add("remote-pi-only");
       section.querySelectorAll("button,input,select,textarea").forEach(function (control) { control.disabled = true; });
       var note = document.createElement("p"); note.className = "remote-section-note"; note.textContent = "Manage this section through Pi Connect. Its data stays on the Pi.";
       section.prepend(note);
     });
+    var mediaInput = document.getElementById("mediaUploadInput"); mediaInput.accept = "image/*";
+    var mediaNote = document.createElement("p"); mediaNote.className = "remote-section-note";
+    mediaNote.textContent = "Upload images from your phone, including lunch menus. Select the current menu and choose Replace image to keep its existing rotation and schedule. Uploads are resized to 2048 pixels and stored in the private content repository. Existing local images show placeholders. Wait for Applied on Pi, then Reload content before the next media edit.";
+    document.getElementById("mediaUploadDropzone").closest("section.admin-card").prepend(mediaNote);
     document.getElementById("previewCustomPage").disabled = true;
     document.getElementById("previewDojoImage").disabled = true;
     document.getElementById("previewDojoImage").title = "Image previews and photos stay on the Pi";
@@ -290,6 +396,6 @@
     var dojoNote = document.createElement("p"); dojoNote.id = "remoteDojoStatus"; dojoNote.className = "remote-section-note";
     document.getElementById("tabContentClassDojo").prepend(dojoNote);
   }
-  window.DashboardRemote = { enabled: remote, ready: ready, api: api, resourceFor: resourceFor };
+  window.DashboardRemote = { enabled: remote, ready: ready, api: api, resourceFor: resourceFor, prepareImage: prepareImage };
   if (remote) { initialiseRemote(); }
 })();

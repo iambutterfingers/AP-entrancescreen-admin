@@ -333,6 +333,8 @@
             </div>
             <div class="btn-row">
               <button id="saveMediaItem" class="btn btn-success" type="button">Save Media</button>
+              <button id="replaceMediaImage" class="btn btn-secondary" type="button">Replace image (keep in rotation)</button>
+              <input id="replaceMediaInput" type="file" accept="image/*" hidden>
               <button id="deleteMediaItem" class="btn btn-danger" type="button">Delete Media</button>
             </div>
             <p class="save-note" id="saveStatusMedia">Not saved yet.</p>
@@ -572,7 +574,7 @@
 
       <section class="admin-card">
         <div class="admin-card__header">
-          <h2>Class Order</h2>
+          <h2>Classes and Order</h2>
         </div>
         <div class="admin-card__body stack">
           <p class="section-copy">Set the order classes appear across the dashboard. Arbor classes are listed on the left — rename them or assign year groups as needed. Use the ClassDojo matches on the right to link or revise event class names.</p>
@@ -590,6 +592,21 @@
             <button id="saveClassOrder" class="btn btn-success" type="button">Save Class Order</button>
           </div>
           <p class="save-note" id="saveStatusClassOrder">Not saved yet.</p>
+        </div>
+      </section>
+
+      <section class="admin-card" id="dashboardSettingsCard">
+        <div class="admin-card__header"><h2>Settings: Arbor and DfE Attendance</h2>
+          <button id="reloadDashboardSettings" class="btn btn-ghost btn-sm" type="button">Reload settings</button>
+        </div>
+        <div class="admin-card__body stack">
+          <p class="section-copy">Update dashboard variables here. Changes survive software updates and take effect on the next feed refresh. Feed addresses may contain credentials, so existing addresses are hidden. Leave them blank to keep them, enter a replacement, or tick Clear to remove one.</p>
+          <p class="section-copy">Leave the manual national attendance percentage blank to use the automatic DfE CSV. Enter a percentage to override it.</p>
+          <form id="dashboardSettingsForm" class="stack">
+            <div id="dashboardSettingsFields" class="stack">Loading settings…</div>
+            <button id="saveDashboardSettings" class="btn btn-success" type="submit">Save settings</button>
+          </form>
+          <p id="dashboardSettingsStatus" class="save-note" role="status" aria-live="polite"></p>
         </div>
       </section>
 
@@ -673,7 +690,8 @@
   </div>
 
   <script src="js/render-pages.js?v=781357b7511f"></script>
-  <script src="remote-config.js?v=81da97e335a2"></script><script src="js/remote-admin.js?v=821e84611c4e"></script>
-  <script src="js/admin-app.js?v=93b7e6aa1d57"></script>
+  <script src="remote-config.js?v=81da97e335a2"></script><script src="js/remote-admin.js?v=600b1233f9fd"></script>
+  <script src="js/admin-app.js?v=a4d4ef71d0ba"></script>
+  <script src="js/admin-settings.js?v=ddca77f52341"></script>
 </body>
 </html>
