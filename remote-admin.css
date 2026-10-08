@@ -1,0 +1,30 @@
+/* Remote-only overrides; the underlying admin interface is shared with the Pi. */
+[hidden] { display: none !important; }
+.remote-connection { max-width: 1500px; margin: 1rem auto; }
+.remote-connection input { max-width: 42rem; }
+#remoteSyncStatus { font-weight: 600; color: #166534; overflow-wrap: anywhere; }
+#remoteSyncStatus.remote-sync-error, #remoteConnectStatus { color: #9a3412; }
+.remote-section-note { padding: 1rem; margin: 0; background: #eff6ff; color: #1e3a5f; border-radius: .75rem; }
+.remote-pi-only .admin-card__body { display: none; }
+.child-upload-dropzone { pointer-events: none; }
+.child-upload-dropzone__hint, [data-child-upload], label[for^="child-upload-"],
+[data-clear-photo], [data-toggle-photo-mode], [data-set-focal], [data-child-focal], [data-open-child-focal] { display: none !important; }
+@media (max-width: 700px) {
+  html, body { overflow-x: hidden; }
+  .remote-connection { margin: .75rem; }
+  .admin-shell { padding: .75rem; }
+  .admin-header { padding: 1rem; }
+  .admin-header__row { flex-wrap: wrap; gap: .75rem; }
+  .admin-grid, .field-grid, .daily-content-row, .overlay-editor-layout { grid-template-columns: minmax(0, 1fr) !important; }
+  .admin-grid > *, .stack, .admin-subcard, .admin-card { min-width: 0; }
+  input, select, textarea { font-size: 16px !important; max-width: 100%; }
+  .btn, .admin-tab { min-height: 44px; }
+  .admin-tabs { flex-wrap: wrap; gap: .5rem; }
+  .btn-row { flex-wrap: wrap; }
+  .page-settings-row { flex-wrap: wrap; }
+  .page-settings-row__edit { flex-basis: 100%; }
+  .child-row__top { grid-template-columns: auto minmax(0, 1fr); }
+  .child-row__top > .child-photo-area { display: none; }
+  .input-row { flex-wrap: wrap; }
+  .input-row > input { min-width: 0; flex-basis: 100%; }
+}

@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en-GB" data-remote-admin>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Admin</title>
+  <link rel="stylesheet" href="admin.css">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src https://api.github.com; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'"><meta name="referrer" content="no-referrer"><meta name="apple-mobile-web-app-capable" content="yes"><link rel="stylesheet" href="remote-admin.css"></head>
+<body>
+  <header class="admin-header">
+    <div class="admin-header__row">
+      <div>
+        <h1>Dashboard Admin</h1>
+        <p>Manage content, media, schedules, page generation, and rotation.</p>
+      </div>
+      <div class="admin-header__links">
+        <a class="btn btn-ghost btn-sm" href="/" target="_blank" rel="noopener noreferrer">Navigation</a>
+        <a class="btn btn-ghost btn-sm" href="/player" target="_blank" rel="noopener noreferrer">Open Player</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="admin-shell">
+    <div id="adminStatus" class="status-banner"></div>
+
+    <section class="admin-card">
+      <div class="admin-card__header">
+        <h2>Control Centre</h2>
+      </div>
+      <div class="admin-card__body">
+        <div class="admin-tabs" role="tablist" aria-label="Admin sections">
+          <button id="adminTabContent" class="admin-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="tabContentContent">Update screen</button>
+          <button id="adminTabAssembly" class="admin-tab" type="button" role="tab" aria-selected="false" aria-controls="tabContentAssembly">Celebration Assembly</button>
+          <button id="adminTabClassDojo" class="admin-tab" type="button" role="tab" aria-selected="false" aria-controls="tabContentClassDojo">Events</button>
+          <button id="adminTabEngine" class="admin-tab" type="button" role="tab" aria-selected="false" aria-controls="tabContentEngine">Media</button>
+          <button id="adminTabAdmin" class="admin-tab" type="button" role="tab" aria-selected="false" aria-controls="tabContentAdmin">Admin</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── UPDATE SCREEN ──────────────────────────────────────────── -->
+    <section id="tabContentContent" class="tab-pane is-active" role="tabpanel" aria-labelledby="adminTabContent">
+      <section class="admin-card">
+        <div class="admin-card__header">
+          <h2>Daily Content</h2>
+        </div>
+        <div class="admin-card__body admin-grid admin-grid--content">
+          <div class="stack">
+            <div class="admin-grid admin-grid--equal daily-content-row">
+              <div class="admin-subcard stack">
+                <h3>Welcome and Notices</h3>
+                <label for="welcomeMessage">Welcome message</label>
+                <textarea id="welcomeMessage"></textarea>
+                <label>Add notice item</label>
+                <div class="input-row">
+                  <input id="noticeItemInput" type="text" placeholder="Add a notice item">
+                  <button id="addNoticeItem" class="btn btn-ghost btn-sm" type="button">+ Add</button>
+                </div>
+                <div id="noticesItemsList" class="repeater-list"></div>
+                <button id="saveNotices" class="btn btn-success" type="button">Save Notices</button>
+                <p class="save-note" id="saveStatusNotices">Not saved yet.</p>
+              </div>
+
+              <div class="admin-subcard stack">
+                <h3>Attendance Messages</h3>
+                <label>Add attendance message</label>
+                <div class="input-row">
+                  <input id="attendanceMessageInput" type="text" placeholder="Add an attendance message">
+                  <button id="addAttendanceMessage" class="btn btn-ghost btn-sm" type="button">+ Add</button>
+                </div>
+                <div id="attendanceMessagesList" class="repeater-list"></div>
+                <button id="saveAttendanceMessages" class="btn btn-success" type="button">Save Attendance Messages</button>
+                <p class="save-note" id="saveStatusAttendanceMessages">Not saved yet.</p>
+              </div>
+            </div>
+
+            <div class="admin-grid admin-grid--equal daily-content-row">
+              <div class="admin-subcard stack">
+                <h3>Screen Overlays</h3>
+                <p class="priority-note"><strong>Priority:</strong> active emergency overlays override other active overlay types.</p>
+                <div id="overlayList" class="multi-list"></div>
+                <button id="addOverlay" class="btn btn-secondary" type="button">New Overlay</button>
+                <div id="overlayFormPanel" class="form-panel stack" hidden>
+                  <h3>Editing Overlay</h3>
+                  <input id="overlayEditId" type="hidden">
+                  <label for="overlayTitleInput">Title</label>
+                  <input id="overlayTitleInput" type="text" placeholder="Important Notice">
+                  <label for="overlayMessageInput">Message</label>
+                  <textarea id="overlayMessageInput" rows="3" placeholder="Overlay message"></textarea>
+                  <div class="overlay-editor-layout">
+                    <div class="overlay-editor-layout__type">
+                      <label for="overlayTypeInput">Type</label>
+                      <input id="overlayTypeInput" type="hidden" value="emergency">
+                      <div class="type-chip-group" id="overlayTypeButtons" role="group" aria-label="Overlay type">
+                        <button class="type-chip emergency is-active" type="button" data-overlay-type="emergency">Emergency</button>
+                        <button class="type-chip info" type="button" data-overlay-type="info">Info</button>
+                        <button class="type-chip success" type="button" data-overlay-type="success">Success</button>
+                        <button class="type-chip reminder" type="button" data-overlay-type="reminder">Reminder</button>
+                      </div>
+                    </div>
+                    <div class="overlay-editor-layout__icon">
+                      <label for="overlayIconInput">Icon</label>
+                      <input id="overlayIconInput" type="text" value="🚨">
+                      <button id="toggleOverlayEmojiGallery" class="btn btn-ghost btn-sm" type="button">Choose emoji</button>
+                    </div>
+                    <div id="overlayEmojiGallery" class="emoji-gallery overlay-emoji-gallery" aria-label="Select overlay emoji" hidden>
+                      <button class="emoji-chip" type="button" data-overlay-emoji="🚨">🚨 Emergency</button>
+                      <button class="emoji-chip" type="button" data-overlay-emoji="⚠️">⚠️ Important</button>
+                      <button class="emoji-chip" type="button" data-overlay-emoji="ℹ️">ℹ️ Information</button>
+                      <button class="emoji-chip" type="button" data-overlay-emoji="📢">📢 Announcement</button>
+                      <button class="emoji-chip" type="button" data-overlay-emoji="🔔">🔔 Reminder</button>
+                      <button class="emoji-chip" type="button" data-overlay-emoji="👩‍🏫">👩‍🏫 Staff / Cover</button>
+                      <button class="emoji-chip" type="button" data-overlay-emoji="🏃">🏃 PE Change</button>
+                      <button class="emoji-chip" type="button" data-overlay-emoji="⚽">⚽ Sports Event</button>
+                      <button class="emoji-chip" type="button" data-overlay-emoji="🍽️">🍽️ Menu Change</button>
+                      <button class="emoji-chip" type="button" data-overlay-emoji="🎉">🎉 Special Event</button>
+                      <button class="emoji-chip" type="button" data-overlay-emoji="🎭">🎭 Performance</button>
+                      <button class="emoji-chip" type="button" data-overlay-emoji="🚌">🚌 School Trip</button>
+                      <button class="emoji-chip" type="button" data-overlay-emoji="❄️">❄️ Weather / Closure</button>
+                      <button class="emoji-chip" type="button" data-overlay-emoji="🔥">🔥 Fire Drill</button>
+                      <button class="emoji-chip" type="button" data-overlay-emoji="🤒">🤒 Health / Wellbeing</button>
+                      <button class="emoji-chip" type="button" data-overlay-emoji="🌟">🌟 Achievement</button>
+                      <button class="emoji-chip" type="button" data-overlay-emoji="📅">📅 Date Change</button>
+                      <button class="emoji-chip" type="button" data-overlay-emoji="🔒">🔒 Site Access</button>
+                    </div>
+                  </div>
+                  <label for="overlayActiveInput">Enabled</label>
+                  <label class="switch-toggle" for="overlayActiveInput">
+                    <input id="overlayActiveInput" type="checkbox">
+                    <span class="switch-toggle__slider"></span>
+                    <span class="switch-toggle__text" id="overlayActiveText">Disabled</span>
+                  </label>
+                  <p class="field-hint">With no schedule: shows immediately when enabled. With a schedule: activation is controlled by the schedule window; enabled only allows/disables participation.</p>
+                  <div id="overlayScheduleWrap"></div>
+                  <div class="btn-row">
+                    <button id="saveOverlays" class="btn btn-success" type="button">Save Overlay</button>
+                    <button id="cancelOverlayEdit" class="btn btn-ghost" type="button">Cancel</button>
+                  </div>
+                  <p class="save-note" id="saveStatusOverlays">Not saved yet.</p>
+                </div>
+              </div>
+
+              <div class="admin-subcard stack">
+                <h3>Ticker Messages</h3>
+                <p class="priority-note"><strong>Priority:</strong> if multiple tickers are active, the newest active one is shown.</p>
+                <div id="tickerList" class="multi-list"></div>
+                <button id="addTicker" class="btn btn-secondary" type="button">New Ticker</button>
+                <div id="tickerFormPanel" class="form-panel stack" hidden>
+                  <h3>Editing Ticker</h3>
+                  <input id="tickerEditId" type="hidden">
+                  <label for="tickerMessageInput">Message</label>
+                  <input id="tickerMessageInput" type="text" placeholder="Ticker message">
+                  <label for="tickerActiveInput">Enabled</label>
+                  <label class="switch-toggle" for="tickerActiveInput">
+                    <input id="tickerActiveInput" type="checkbox">
+                    <span class="switch-toggle__slider"></span>
+                    <span class="switch-toggle__text" id="tickerActiveText">Disabled</span>
+                  </label>
+                  <p class="field-hint">With no schedule: scrolls immediately when enabled. With a schedule: activation is controlled by the schedule window; enabled only allows/disables participation.</p>
+                  <div id="tickerScheduleWrap"></div>
+                  <div class="btn-row">
+                    <button id="saveTickers" class="btn btn-success" type="button">Save Ticker</button>
+                    <button id="cancelTickerEdit" class="btn btn-ghost" type="button">Cancel</button>
+                  </div>
+                  <p class="save-note" id="saveStatusTickers">Not saved yet.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <!-- ── CELEBRATION ASSEMBLY ───────────────────────────────────── -->
+    <section id="tabContentAssembly" class="tab-pane" role="tabpanel" aria-labelledby="adminTabAssembly">
+      <section class="admin-card">
+        <div class="admin-card__header">
+          <h2>Celebration Assembly</h2>
+        </div>
+        <div class="admin-card__body stack">
+          <div id="celebrationValuesBar" class="celebration-values-bar hidden" aria-label="School values"></div>
+          <div id="celebrationCurrentSection" class="stack"></div>
+          <div id="celebrationUpcomingSection" class="stack"></div>
+          <datalist id="celebrationValuesDatalist"></datalist>
+          <datalist id="celebrationClassDatalist"></datalist>
+          <div class="admin-subcard stack" id="celebrationDojoWrap">
+            <h3>Share on ClassDojo</h3>
+            <p class="section-copy">Schedule a post to your school's ClassDojo story feed. The post is created on ClassDojo's server and will appear at 3:30 pm on the assembly date.</p>
+            <div class="field-grid">
+              <div>
+                <label for="celebrationDojoTitle">Post heading (used on the image)</label>
+                <input id="celebrationDojoTitle" type="text" value="Celebration Assembly">
+              </div>
+            </div>
+            <label for="celebrationDojoMessage">Message (template auto-fills until you edit it)</label>
+            <textarea id="celebrationDojoMessage" rows="4"></textarea>
+            <div class="btn-row">
+              <button id="previewDojoImage" class="btn btn-ghost" type="button">Preview Image</button>
+              <button id="postToDojo" class="btn btn-primary" type="button">Schedule ClassDojo Post</button>
+            </div>
+            <p class="save-note" id="saveStatusCelebrationDojo">Not posted.</p>
+            <div id="celebrationDojoPreview" class="dojo-preview hidden">
+              <img id="celebrationDojoPreviewImg" src="" alt="Post preview">
+            </div>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <!-- ── EVENTS ─────────────────────────────────────────────────── -->
+    <section id="tabContentClassDojo" class="tab-pane" role="tabpanel" aria-labelledby="adminTabClassDojo">
+      <section class="admin-card">
+        <div class="admin-card__header">
+          <div>
+            <h2>ClassDojo Events</h2>
+            <p class="section-copy">Events are pulled automatically from ClassDojo. Use this tab to review possible duplicates, rename events, and set who each event is for before it appears on the dashboard.</p>
+          </div>
+        </div>
+        <div class="admin-card__body stack">
+          <div class="dojo-event-toolbar">
+            <div class="dojo-event-toolbar__meta">
+              <span id="dojoClassesSummary">Not loaded yet.</span>
+              <span class="dojo-event-toolbar__sep">·</span>
+              <span id="dojoEventsSummary">Not loaded yet.</span>
+              <span class="dojo-event-toolbar__sep">·</span>
+              <span id="dojoMergeSummary">No event groups loaded yet.</span>
+            </div>
+            <div class="btn-row">
+              <button id="refreshDojoClasses" class="btn btn-ghost btn-sm" type="button">Refresh class list</button>
+              <button id="refreshDojoEvents" class="btn btn-ghost btn-sm" type="button">Refresh events list</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="admin-card">
+        <div class="admin-card__header">
+          <h2>Similar events — check before merging</h2>
+        </div>
+        <div class="admin-card__body stack">
+          <p class="section-copy">These events look like they might be the same thing posted for different classes. Review them and click "Link suggestion" to merge them into one entry on the dashboard.</p>
+          <p id="dojoSuggestionSummary" class="save-note">No suggestions yet.</p>
+          <div id="dojoEventSuggestionList" class="multi-list"></div>
+        </div>
+      </section>
+
+      <section class="admin-card">
+        <div class="admin-card__header">
+          <h2>Events</h2>
+        </div>
+        <div class="admin-card__body stack">
+          <div class="btn-row">
+            <button id="mergeDojoGroups" class="btn btn-success" type="button">Link selected events</button>
+            <button id="clearDojoGroupSelection" class="btn btn-ghost" type="button">Clear selection</button>
+          </div>
+          <p id="dojoGroupSelectionStatus" class="save-note">Select two or more event cards to link them together.</p>
+          <div id="dojoEventGroupList" class="multi-list"></div>
+        </div>
+      </section>
+    </section>
+
+    <!-- ── MEDIA ──────────────────────────────────────────────────── -->
+    <section id="tabContentEngine" class="tab-pane" role="tabpanel" aria-labelledby="adminTabEngine">
+      <section class="admin-card">
+        <div class="admin-card__header">
+          <h2>Media Library</h2>
+        </div>
+        <div class="admin-card__body admin-grid admin-grid--two">
+          <div class="stack">
+            <label for="mediaUploadInput">Upload media (images and videos)</label>
+            <div id="mediaUploadDropzone" class="upload-dropzone" role="button" tabindex="0" aria-label="Upload media">
+              <input id="mediaUploadInput" class="upload-dropzone__input" type="file" accept="image/*,video/*" multiple>
+              <span class="upload-dropzone__title">Drop images or videos here</span>
+              <span class="upload-dropzone__hint">or click to browse files</span>
+            </div>
+            <div class="field-grid field-grid--two">
+              <div>
+                <label for="mediaKindFilter">Filter by type</label>
+                <select id="mediaKindFilter">
+                  <option value="">All media</option>
+                  <option value="image">Images only</option>
+                  <option value="video">Videos only</option>
+                </select>
+              </div>
+              <div>
+                <label for="mediaTagFilter">Filter by tag</label>
+                <select id="mediaTagFilter">
+                  <option value="">All tags</option>
+                </select>
+              </div>
+            </div>
+            <div class="field-grid field-grid--three">
+              <label class="switch-toggle" for="selectAllMedia">
+                <input id="selectAllMedia" type="checkbox">
+                <span class="switch-toggle__slider"></span>
+                <span class="switch-toggle__text" id="selectAllMediaText">Select page</span>
+              </label>
+              <input id="mediaBulkTags" type="text" placeholder="Bulk add tags (comma separated)">
+              <button id="applyMediaBulkTags" class="btn btn-secondary" type="button">Add Tags to Selected</button>
+            </div>
+            <div class="stack stack--tight">
+              <label class="label--flush">Click existing tags to add to bulk tags</label>
+              <div id="mediaBulkTagPicker" class="media-tag-picker"></div>
+            </div>
+            <div id="mediaGrid" class="media-grid"></div>
+            <div id="mediaPagination" class="media-pagination"></div>
+          </div>
+          <div class="stack">
+            <h3 id="mediaEditorHeading">Media item</h3>
+            <label for="mediaTitle">Title</label>
+            <input id="mediaTitle" type="text">
+            <label for="mediaTags">Tags (comma separated)</label>
+            <input id="mediaTags" type="text">
+            <div class="stack stack--tight">
+              <label class="label--flush">Click existing tags to add/remove</label>
+              <div id="mediaTagPicker" class="media-tag-picker"></div>
+            </div>
+            <div class="field-grid">
+              <div>
+                <label for="mediaFocalX">Focal X (%)</label>
+                <input id="mediaFocalX" type="number" min="0" max="100">
+              </div>
+              <div>
+                <label for="mediaFocalY">Focal Y (%)</label>
+                <input id="mediaFocalY" type="number" min="0" max="100">
+              </div>
+            </div>
+            <div id="focalPreview" class="focal-preview">
+              <img id="focalPreviewImage" alt="">
+              <video id="focalPreviewVideo" muted preload="metadata"></video>
+              <div id="focalPreviewVideoLabel" class="focal-preview__video-label hidden">Video preview. Focal point is only used for images.</div>
+              <div id="focalMarker" class="focal-marker"></div>
+            </div>
+            <div class="btn-row">
+              <button id="saveMediaItem" class="btn btn-success" type="button">Save Media</button>
+              <button id="deleteMediaItem" class="btn btn-danger" type="button">Delete Media</button>
+            </div>
+            <p class="save-note" id="saveStatusMedia">Not saved yet.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="admin-card">
+        <div class="admin-card__header">
+          <h2>Rotation Engine</h2>
+        </div>
+        <div class="admin-card__body admin-grid admin-grid--two">
+          <div class="stack">
+            <p class="section-copy">Order pages and media into one mixed signage playlist.</p>
+            <div id="rotationList" class="sortable-list"></div>
+            <div class="btn-row">
+              <button id="toggleAddRotationPicker" class="btn btn-primary" type="button">+ Add Item</button>
+            </div>
+            <div id="addRotationPicker" class="add-rotation-picker hidden">
+              <p class="add-rotation-picker__title">What would you like to add?</p>
+              <div class="add-rotation-picker__grid">
+                <button class="add-rotation-option" type="button" data-add-rotation-type="built_in_page">
+                  <span class="add-rotation-option__icon">📄</span>
+                  <span class="add-rotation-option__label">Template</span>
+                  <span class="add-rotation-option__hint">Attendance, Events, Celebration Assembly, Countdown, and more</span>
+                </button>
+                <button class="add-rotation-option" type="button" data-add-rotation-type="custom_page">
+                  <span class="add-rotation-option__icon">✏️</span>
+                  <span class="add-rotation-option__label">Editable Template</span>
+                  <span class="add-rotation-option__hint">A template you've built yourself using the template builder below</span>
+                </button>
+                <button class="add-rotation-option" type="button" data-add-rotation-type="image">
+                  <span class="add-rotation-option__icon">🖼️</span>
+                  <span class="add-rotation-option__label">Single Image or Video</span>
+                  <span class="add-rotation-option__hint">Display one image or video from your media library</span>
+                </button>
+                <button class="add-rotation-option" type="button" data-add-rotation-type="picture_page">
+                  <span class="add-rotation-option__icon">🗂️</span>
+                  <span class="add-rotation-option__label">Media Grid</span>
+                  <span class="add-rotation-option__hint">Show a grid of multiple images or videos from your media library</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="stack">
+            <h3 id="rotationEditorHeading">Rotation Item</h3>
+            <input id="rotationItemId" type="hidden">
+            <div class="field-grid">
+              <div>
+                <label for="rotationItemType">Type</label>
+                <select id="rotationItemType">
+                  <option value="built_in_page">Template</option>
+                  <option value="custom_page">Editable template</option>
+                  <option value="image">Single media item</option>
+                  <option value="picture_page">Media grid</option>
+                </select>
+              </div>
+              <div>
+                <label for="rotationItemTitle">Title</label>
+                <input id="rotationItemTitle" type="text">
+              </div>
+            </div>
+            <div class="field-grid field-grid--three">
+              <div>
+                <label for="rotationEnabled">Enabled</label>
+                <label class="switch-toggle" for="rotationEnabled">
+                  <input id="rotationEnabled" type="checkbox">
+                  <span class="switch-toggle__slider"></span>
+                  <span class="switch-toggle__text" id="rotationEnabledText">Disabled</span>
+                </label>
+              </div>
+              <div>
+                <label for="rotationDuration">Duration (seconds)</label>
+                <input id="rotationDuration" type="number" min="1" step="1">
+              </div>
+              <div>
+                <label for="rotationTransition">Fade (seconds)</label>
+                <input id="rotationTransition" type="number" min="0.2" step="0.1">
+              </div>
+            </div>
+            <div class="field-grid">
+              <div>
+                <label for="rotationStartDate">Start date</label>
+                <input id="rotationStartDate" type="date">
+              </div>
+              <div>
+                <label for="rotationEndDate">End date</label>
+                <input id="rotationEndDate" type="date">
+              </div>
+            </div>
+
+            <div id="rotationBuiltInFields" class="stack">
+              <label for="rotationBuiltInPage">Template</label>
+              <select id="rotationBuiltInPage"></select>
+              <div id="rotationBuiltInThemeControls"></div>
+              <div id="rotationCountdownFields" class="stack hidden">
+                <label>Countdown mode</label>
+                <div class="radio-option-group">
+                  <label class="radio-option">
+                    <input type="radio" name="rotationCountdownMode" id="rotationCountdownModeAuto" value="auto">
+                    <span class="radio-option__label">Next school holiday <span class="radio-option__desc">(from term dates)</span></span>
+                  </label>
+                  <label class="radio-option">
+                    <input type="radio" name="rotationCountdownMode" id="rotationCountdownModeCustom" value="custom">
+                    <span class="radio-option__label">Custom date</span>
+                  </label>
+                </div>
+                <div id="rotationCountdownDateFields" class="field-grid hidden">
+                  <div>
+                    <label for="rotationCountdownDate">Target date</label>
+                    <input id="rotationCountdownDate" type="date">
+                  </div>
+                  <div>
+                    <label for="rotationCountdownLabel">Label (e.g. "Christmas")</label>
+                    <input id="rotationCountdownLabel" type="text" placeholder="e.g. End of Term">
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div id="rotationCustomPageFields" class="stack">
+              <label for="rotationCustomPage">Editable template</label>
+              <select id="rotationCustomPage"></select>
+            </div>
+
+            <div id="rotationImageFields" class="stack">
+              <label for="rotationImageMedia">Media item</label>
+              <select id="rotationImageMedia"></select>
+            </div>
+
+            <div id="rotationPictureFields" class="stack">
+              <label for="rotationPictureCount">Media items shown in this slot</label>
+              <input id="rotationPictureCount" type="number" min="1" step="1">
+              <label>Media pool</label>
+              <div class="picture-pool-toolbar">
+                <div class="field-grid">
+                  <div>
+                    <label for="rotationPictureTagFilter">Filter by tag</label>
+                    <select id="rotationPictureTagFilter">
+                      <option value="">All tags</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label>Selection</label>
+                    <div class="btn-row picture-pool-actions">
+                      <button id="rotationPictureSelectAll" class="btn btn-ghost btn-sm" type="button">Select all</button>
+                      <button id="rotationPictureSelectTag" class="btn btn-ghost btn-sm" type="button">Select tag</button>
+                      <button id="rotationPictureSelectNone" class="btn btn-ghost btn-sm" type="button">Clear</button>
+                    </div>
+                  </div>
+                </div>
+                <p id="rotationPictureSummary" class="muted picture-pool-summary">No media selected.</p>
+              </div>
+              <div id="rotationPictureMediaList" class="library-selector picture-pool-grid"></div>
+            </div>
+
+            <div class="btn-row">
+              <button id="saveRotationItem" class="btn btn-success" type="button">Save Item</button>
+              <button id="clearRotationEditor" class="btn btn-ghost" type="button">Clear</button>
+            </div>
+            <p class="save-note" id="saveStatusRotation">Not saved yet.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="admin-card admin-card--backend-only" hidden>
+        <div class="admin-card__header">
+          <h2>Backend Page Overrides</h2>
+        </div>
+        <div class="admin-card__body stack">
+          <p class="section-copy">Backend-only page title overrides. Theme options are in the Rotation Engine: edit a template item and save it there.</p>
+          <div id="pageSettingsList" class="page-settings-list"></div>
+          <p class="save-note" id="saveStatusPageSettings"></p>
+        </div>
+      </section>
+
+      <section class="admin-card">
+        <div class="admin-card__header">
+          <h2>Templates</h2>
+        </div>
+        <div class="admin-card__body admin-grid admin-grid--two">
+          <div class="stack">
+            <div class="btn-row">
+              <button id="addCustomPage" class="btn btn-primary" type="button">New Template</button>
+              <button id="saveCustomPage" class="btn btn-success" type="button">Save Template</button>
+              <button id="duplicateCustomPage" class="btn btn-secondary" type="button">Duplicate</button>
+              <button id="deleteCustomPage" class="btn btn-danger" type="button">Delete</button>
+            </div>
+            <p class="save-note" id="saveStatusCustomPage">Not saved yet.</p>
+            <div id="customPageList" class="page-list"></div>
+            <div id="customPageThemeControls"></div>
+            <label for="customPageTitleInput">Template title</label>
+            <input id="customPageTitleInput" type="text">
+            <div id="builderRows" class="stack"></div>
+            <div class="btn-row">
+              <button id="addBuilderRow" class="btn btn-secondary" type="button">Add Row</button>
+              <button id="previewCustomPage" class="btn btn-ghost" type="button">Open Preview</button>
+            </div>
+          </div>
+          <div class="stack">
+            <h3>Builder Preview</h3>
+            <div id="builderPreview" class="builder-preview"></div>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <!-- ── ADMIN ──────────────────────────────────────────────────── -->
+    <section id="tabContentAdmin" class="tab-pane" role="tabpanel" aria-labelledby="adminTabAdmin">
+
+      <section class="admin-card">
+        <div class="admin-card__header">
+          <h2>TV Power</h2>
+        </div>
+        <div class="admin-card__body">
+          <div class="tv-power-now-row">
+            <button id="tvPowerOnNow" class="btn btn-tv-on" type="button">&#9654; Turn TV On Now</button>
+            <button id="tvPowerOffNow" class="btn btn-tv-standby" type="button">&#9646;&#9646; Standby Now</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="admin-card">
+        <div class="admin-card__header">
+          <div>
+            <h2>Dashboard Health</h2>
+            <p class="section-copy">Quickly check whether the live feeds, player, and key integrations are ready.</p>
+          </div>
+          <button id="refreshDashboardHealth" class="btn btn-ghost btn-sm" type="button">Refresh Status</button>
+        </div>
+        <div class="admin-card__body stack">
+          <div id="dashboardHealthSummary" class="health-overview">Checking dashboard status...</div>
+          <div id="dashboardHealthList" class="health-grid"></div>
+        </div>
+      </section>
+
+      <section class="admin-card">
+        <div class="admin-card__header">
+          <h2>Class Order</h2>
+        </div>
+        <div class="admin-card__body stack">
+          <p class="section-copy">Set the order classes appear across the dashboard. Arbor classes are listed on the left — rename them or assign year groups as needed. Use the ClassDojo matches on the right to link or revise event class names.</p>
+          <div class="class-order-layout">
+            <div class="class-order-panel">
+              <h3>Class order</h3>
+              <div id="classOrderList" class="class-order-list"></div>
+            </div>
+            <div class="class-order-panel">
+              <h3>ClassDojo class matches</h3>
+              <div id="classDojoMatchList" class="class-dojo-match-list"></div>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button id="saveClassOrder" class="btn btn-success" type="button">Save Class Order</button>
+          </div>
+          <p class="save-note" id="saveStatusClassOrder">Not saved yet.</p>
+        </div>
+      </section>
+
+      <section class="admin-card">
+        <div class="admin-card__header">
+          <h2>ClassDojo Authentication</h2>
+        </div>
+        <div class="admin-card__body stack">
+          <p class="section-copy">Reset the cached ClassDojo login, then enter the 6-digit code that ClassDojo emails to the current account when prompted.</p>
+          <div id="classDojoCodeSection" class="hidden stack">
+            <div class="field-grid field-grid--two">
+              <div>
+                <label for="classDojoOtpCode">6-digit code</label>
+                <input id="classDojoOtpCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456">
+              </div>
+              <div>
+                <label>Tip</label>
+                <p class="field-hint">Click Reset ClassDojo Login first to send a new code, then enter it here and press Verify.</p>
+              </div>
+            </div>
+            <div class="btn-row">
+              <button id="verifyDojoCode" class="btn btn-primary" type="button">Verify 6-digit Code</button>
+            </div>
+          </div>
+          <p id="classDojoCodeStatus" class="field-hint">No code is needed right now. Press Reset ClassDojo Login if ClassDojo asks for one.</p>
+          <div class="btn-row">
+            <button id="resetDojoAuth" class="btn btn-ghost" type="button">Reset ClassDojo Login</button>
+          </div>
+          <p class="save-note" id="saveStatusClassDojoAuth">Not ready.</p>
+          <details id="dojoResponseWrap" class="dojo-response hidden">
+            <summary>ClassDojo response details</summary>
+            <pre id="dojoResponseOutput" class="dojo-response__output"></pre>
+          </details>
+        </div>
+      </section>
+
+      <section class="admin-card">
+        <div class="admin-card__header">
+          <h2>TV Power Schedule (cec-ctl)</h2>
+        </div>
+        <div class="admin-card__body stack">
+          <div>
+            <label for="tvPowerEnabled">TV schedule status</label>
+            <label class="switch-toggle" for="tvPowerEnabled">
+              <input id="tvPowerEnabled" type="checkbox">
+              <span class="switch-toggle__slider"></span>
+              <span class="switch-toggle__text" id="tvPowerEnabledText">Disabled</span>
+            </label>
+          </div>
+          <div id="tvPowerRules" class="repeater-list"></div>
+          <div class="btn-row">
+            <button id="addTvRule" class="btn btn-secondary" type="button">Add TV Rule</button>
+            <button id="saveTvSchedule" class="btn btn-success" type="button">Save TV Schedule</button>
+          </div>
+          <p class="save-note" id="saveStatusTvPower">Not saved yet.</p>
+          <div class="stack">
+            <h3>TV Power Alert History</h3>
+            <p class="section-copy">Recent CEC actions and failures. Use this to identify repeated standby/power-on issues.</p>
+            <div id="tvPowerHistory" class="repeater-list"></div>
+          </div>
+        </div>
+      </section>
+    </section>
+
+  </main>
+
+  <!-- Child photo focal point picker modal -->
+  <div id="childFocalModal" class="child-focal-modal hidden" role="dialog" aria-modal="true" aria-label="Set photo focal point">
+    <div class="child-focal-modal__inner">
+      <h3 class="child-focal-modal__heading">Set focal point</h3>
+      <p class="child-focal-modal__hint">Click on the face or area you want centred in the circular frame.</p>
+      <div id="childFocalPreview" class="focal-preview child-focal-preview">
+        <img id="childFocalImage" alt="">
+        <div id="childFocalMarker" class="focal-marker"></div>
+      </div>
+      <div class="btn-row">
+        <button id="childFocalConfirm" class="btn btn-success" type="button">Apply</button>
+        <button id="childFocalCancel" class="btn btn-ghost" type="button">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/render-pages.js"></script>
+  <script src="remote-config.js"></script><script src="js/remote-admin.js"></script>
+  <script src="js/admin-app.js"></script>
+</body>
+</html>
