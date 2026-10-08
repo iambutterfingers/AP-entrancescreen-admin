@@ -61,6 +61,19 @@
   }
   function updateStatus(data) {
     var receipts = data.receipts || [];
+    var history = document.getElementById("remoteRecentSaves");
+    if (history) {
+      history.replaceChildren();
+      receipts.slice(-8).reverse().forEach(function (receipt) {
+        var row = document.createElement("li");
+        var result = receipt.result && receipt.result.scheduled_at;
+        row.textContent = (receipt.resource || "Save") + ": " +
+          (receipt.status === "applied" ? (result ? "ClassDojo scheduled for " + new Date(result).toLocaleString() : "Applied on Pi") : receipt.error || receipt.status) +
+          " · " + new Date(receipt.at).toLocaleString();
+        if (receipt.status !== "applied") { row.className = "remote-sync-error"; }
+        history.appendChild(row);
+      });
+    }
     var pending = Object.keys(ownCommands).filter(function (id) {
       return !receipts.some(function (r) { return r.id === id; });
     });
@@ -204,12 +217,14 @@
     panel = document.createElement("section"); panel.className = "admin-card remote-connection";
     panel.innerHTML = '<div class="admin-card__body stack"><h2>Connect to GitHub</h2>' +
       '<p>Use a fine-grained token with Contents read/write access to the private content repository only. Your token stays in memory until you disconnect or close this page.</p>' +
+      '<p class="remote-token-help"><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer">Create a GitHub token</a> · Select only the content repository and give Contents read/write permission.</p>' +
       '<form id="remoteConnectForm" class="stack"><label for="remoteRepository">Content repository</label><input id="remoteRepository" placeholder="owner/repository" required autocapitalize="none" spellcheck="false">' +
       '<label for="remoteToken">GitHub token</label><input id="remoteToken" type="password" required autocomplete="off" autocapitalize="none" spellcheck="false">' +
       '<button class="btn btn-primary" type="submit">Connect</button><p id="remoteConnectStatus" role="status" aria-live="polite"></p></form>' +
       '<div id="remoteConnected" class="stack" hidden><p id="remoteSyncStatus" role="status" aria-live="polite"></p><div class="btn-row">' +
       '<button id="remoteCheck" class="btn btn-secondary" type="button">Check sync</button><button id="remoteReload" class="btn btn-ghost" type="button">Reload content</button>' +
-      '<button id="remoteDisconnect" class="btn btn-ghost" type="button">Disconnect</button></div></div></div>';
+      '<button id="remoteDisconnect" class="btn btn-ghost" type="button">Disconnect</button></div>' +
+      '<details><summary>Recent saves</summary><ul id="remoteRecentSaves"></ul></details></div></div>';
     document.querySelector(".admin-shell").before(panel);
     connectionStatus = document.getElementById("remoteConnectStatus"); syncStatus = document.getElementById("remoteSyncStatus");
     document.querySelector(".admin-shell").hidden = true;
@@ -230,6 +245,7 @@
         contentVersions = {};
         Object.keys(documentState.snapshot.resources).forEach(function (key) { contentVersions[key] = documentState.snapshot.resources[key].version; });
         connected = true;
+        panel.classList.add("is-connected");
         document.getElementById("remoteToken").value = "";
         event.target.hidden = true; document.getElementById("remoteConnected").hidden = false;
         document.querySelector(".admin-shell").hidden = false;
