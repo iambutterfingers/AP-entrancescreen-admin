@@ -2620,7 +2620,7 @@
     state.schoolValues.forEach(function (v) {
       var chip = document.createElement("span");
       chip.className = "value-badge";
-      chip.innerHTML = '<img src="/values/' + escapeAttribute(v.key) + '.png" alt="" onerror="this.style.display=\'none\'"><span>' + escapeText(v.label) + '</span>';
+      chip.innerHTML = '<img src="values/' + escapeAttribute(v.key) + '.png" alt="" onerror="this.style.display=\'none\'"><span>' + escapeText(v.label) + '</span>';
       bar.appendChild(chip);
     });
   }
@@ -2630,7 +2630,7 @@
     var chips = state.schoolValues.map(function (v) {
       var active = v.key === activeKey ? ' is-active' : '';
       return '<button class="value-chip' + active + '" type="button" data-assign-value="' + escapeAttribute(childId + ':' + v.key) + '">' +
-        '<img src="/values/' + escapeAttribute(v.key) + '.png" alt="" onerror="this.style.display=\'none\'">' +
+        '<img src="values/' + escapeAttribute(v.key) + '.png" alt="" onerror="this.style.display=\'none\'">' +
         '<span>' + escapeText(v.label) + '</span></button>';
     }).join("");
     return '<div class="child-value-selector hidden" data-child-value-selector="' + escapeAttribute(childId) + '">' +
@@ -2808,7 +2808,7 @@
         '</div>';
     } else if (child.value_key) {
       photoHtml = '<div class="child-photo-area child-upload-dropzone" ' + dropzoneAttrs + '>' +
-        '<img class="child-photo--value" src="/values/' + escapeAttribute(child.value_key) + '.png" alt="' + escapeAttribute(child.value_key) + '" onerror="this.style.display=\'none\'">' +
+        '<img class="child-photo--value" src="values/' + escapeAttribute(child.value_key) + '.png" alt="' + escapeAttribute(child.value_key) + '" onerror="this.style.display=\'none\'">' +
         '<span class="child-photo--value-label">' + escapeText(child.value_label || _valueLabelFor(child.value_key)) + '</span>' +
         '<span class="child-upload-dropzone__hint">Drop photo or click frame</span>' +
         '</div>';
