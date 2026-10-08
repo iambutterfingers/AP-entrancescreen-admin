@@ -61,6 +61,12 @@
   }
   function updateStatus(data) {
     var receipts = data.receipts || [];
+    var dojoStatus = document.getElementById("remoteDojoStatus");
+    if (dojoStatus) {
+      dojoStatus.textContent = data.snapshot.bootstrap.classDojoNeedsCode
+        ? "ClassDojo needs a login code. Open Pi Connect to complete its sign-in, then request an event refresh."
+        : "Events are the Pi's last published copy. After a request applies, use Reload content to see the result.";
+    }
     var history = document.getElementById("remoteRecentSaves");
     if (history) {
       history.replaceChildren();
@@ -281,6 +287,8 @@
     var celebrationNote = document.createElement("p"); celebrationNote.className = "remote-section-note";
     celebrationNote.textContent = "Edit names, awards and dates here. Existing photos are preserved on the Pi. Save the assembly and wait for it to apply before scheduling its ClassDojo post.";
     document.getElementById("tabContentAssembly").prepend(celebrationNote);
+    var dojoNote = document.createElement("p"); dojoNote.id = "remoteDojoStatus"; dojoNote.className = "remote-section-note";
+    document.getElementById("tabContentClassDojo").prepend(dojoNote);
   }
   window.DashboardRemote = { enabled: remote, ready: ready, api: api, resourceFor: resourceFor };
   if (remote) { initialiseRemote(); }
