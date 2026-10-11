@@ -80,7 +80,7 @@
     }
     var dojoStatus = document.getElementById("remoteDojoStatus");
     if (dojoStatus) {
-      dojoStatus.textContent = data.snapshot.bootstrap.classDojoNeedsCode
+      dojoStatus.textContent = authResource && authResource.payload.blocked ? authResource.payload.message : data.snapshot.bootstrap.classDojoNeedsCode
         ? "ClassDojo needs a login code. Enter the latest emailed code in ClassDojo Authentication below."
         : "Events are the Pi's last published copy. After a request applies, use Reload content to see the result.";
     }
@@ -256,7 +256,8 @@
       if (data.commands.some(function (c) { return resourceFor(c.path) === key; })) {
         throw new Error("A save for this section is already waiting for the Pi. Wait for it to apply, then save again.");
       }
-      if (!data.snapshot.resources[key] || contentVersions[key] !== data.snapshot.resources[key].version) {
+      var refresh = /^\/api\/classdojo\/events\/refresh-(classes|events)$/.test(path);
+      if (!data.snapshot.resources[key] || (!refresh && contentVersions[key] !== data.snapshot.resources[key].version)) {
         throw new Error("This section changed on another device. Reload content before saving; keep a copy of your edits first.");
       }
       var command = { id: "save-" + crypto.randomUUID(), path: path, method: options.method,
