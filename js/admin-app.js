@@ -4559,7 +4559,7 @@
     if (codeStatus) {
       codeStatus.textContent = needsCode
         ? (auth.message || "ClassDojo has requested a 6-digit code for this login.")
-        : "No code is needed right now. Press Reset ClassDojo Login if ClassDojo asks for one.";
+        : (auth.message || "No code is needed right now. Press Reset ClassDojo Login if ClassDojo asks for one.");
     }
     if (!needsCode && dojoCodeInput()) {
       dojoCodeInput().value = "";
@@ -5069,7 +5069,7 @@
       input.value = digits;
     }
     if (verifyButton) {
-      verifyButton.disabled = digits.length !== 6;
+      verifyButton.disabled = digits.length !== 6 || !!classDojoAuthData().queued;
     }
   }
 
@@ -5125,6 +5125,14 @@
       method: "POST",
       body: JSON.stringify({ code: code }),
     }).then(function (result) {
+      if (result.queued) {
+        state.classDojoAuth.queued = true;
+        if (dojoCodeInput()) { dojoCodeInput().value = ""; }
+        syncDojoCodeInput();
+        setSaveStatus("saveStatusClassDojoAuth", "Code encrypted and saved. Waiting for Pi to verify…");
+        updateDojoResponsePanel({ queued: true, message: "Waiting for Pi to verify the code." });
+        return;
+      }
       state.classDojoAuth = Object.assign({}, classDojoAuthData(), result || {}, {
         needs_code: false,
       });
@@ -6269,6 +6277,13 @@
       .catch(function (error) {
         flash("Admin bootstrap failed: " + error.message, "error");
       });
+  });
+  window.addEventListener("dashboard:classdojo-auth", function (event) {
+    state.classDojoAuth = event.detail;
+    renderClassDojoAuthCard();
+    if (event.detail.queued || event.detail.verificationMessage) {
+      setSaveStatus("saveStatusClassDojoAuth", event.detail.queued ? "Code encrypted and saved. Waiting for Pi to verify…" : event.detail.verificationMessage);
+    }
   });
   window.addEventListener("dashboard:reload-content", function () {
     loadBootstrap().catch(function (error) { flash(error.message, "error"); });

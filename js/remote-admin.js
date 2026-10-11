@@ -7,7 +7,8 @@
     "/api/celebration-children": "celebrationUpcoming", "/api/celebration-children/upcoming": "celebrationUpcoming",
     "/api/celebration-children/current": "celebrationCurrent", "/api/celebration-post": "celebrationUpcoming",
     "/api/classdojo/events/admin": "classdojo", "/api/class-order": "classOrder",
-    "/api/admin/settings": "settings", "/api/media-library": "mediaLibrary" };
+    "/api/admin/settings": "settings", "/api/media-library": "mediaLibrary",
+    "/api/classdojo/complete-auth": "classdojoAuth" };
   function resourceFor(path) {
     if (routes[path]) { return routes[path]; }
     if (/^\/api\/media-library\/[a-zA-Z0-9_-]+(?:\/replace)?$/.test(path)) { return "mediaLibrary"; }
@@ -64,10 +65,23 @@
   }
   function updateStatus(data) {
     var receipts = data.receipts || [];
+    var authResource = data.snapshot.resources.classdojoAuth;
+    if (authResource) {
+      contentVersions.classdojoAuth = authResource.version;
+      var auth = copy(authResource.payload);
+      auth.queued = (data.commands || []).some(function (c) { return resourceFor(c.path) === "classdojoAuth"; });
+      var authReceipts = receipts.filter(function (r) { return ownCommands[r.id] === "classdojoAuth"; });
+      if (authReceipts.length && !auth.queued) {
+        var last = authReceipts[authReceipts.length - 1];
+        auth.verificationMessage = last.status === "applied" ? "ClassDojo code verified on Pi." : last.error || "Verification interrupted. Reload content and check ClassDojo before retrying.";
+      }
+      var event = new Event("dashboard:classdojo-auth"); event.detail = auth;
+      window.dispatchEvent(event);
+    }
     var dojoStatus = document.getElementById("remoteDojoStatus");
     if (dojoStatus) {
       dojoStatus.textContent = data.snapshot.bootstrap.classDojoNeedsCode
-        ? "ClassDojo needs a login code. Open Pi Connect to complete its sign-in, then request an event refresh."
+        ? "ClassDojo needs a login code. Enter the latest emailed code in ClassDojo Authentication below."
         : "Events are the Pi's last published copy. After a request applies, use Reload content to see the result.";
     }
     var history = document.getElementById("remoteRecentSaves");
@@ -120,7 +134,7 @@
     var item = documentState.snapshot.resources[key];
     var payload = item ? copy(item.payload) : {};
     (documentState.commands || []).forEach(function (command) {
-      if (resourceFor(command.path) === key && command.path !== "/api/celebration-post" && key !== "classdojo" && key !== "settings" && key !== "mediaLibrary") {
+      if (resourceFor(command.path) === key && command.path !== "/api/celebration-post" && key !== "classdojoAuth" && key !== "classdojo" && key !== "settings" && key !== "mediaLibrary") {
         payload = command.method === "DELETE" ? {} : copy(command.body);
       }
     });
@@ -145,8 +159,8 @@
   }
   function binary64(bytes) { return btoa(Array.from(new Uint8Array(bytes), function (b) { return String.fromCharCode(b); }).join("")); }
   function bytes64(value) { return Uint8Array.from(atob(value), function (c) { return c.charCodeAt(0); }); }
-  async function encryptSettings(changes) {
-    var encryption = documentState.snapshot.resources.settings.payload.encryption;
+  async function encryptSettings(changes, encryption) {
+    encryption = encryption || documentState.snapshot.resources.settings.payload.encryption;
     if (!crypto.subtle || !encryption) { throw new Error("Secure settings are unavailable. Update the Pi and reload this page."); }
     var publicKey = await crypto.subtle.importKey("spki", bytes64(encryption.spki), { name: "RSA-OAEP", hash: "SHA-256" }, false, ["wrapKey"]);
     var aes = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, true, ["encrypt"]);
@@ -222,6 +236,13 @@
     if (!allowed) { throw new Error("This action is available through Raspberry Pi Connect at school."); }
     var body = options.body ? JSON.parse(options.body) : {};
     var submittedBody = copy(body);
+    if (key === "classdojoAuth") {
+      var auth = documentState.snapshot.resources.classdojoAuth;
+      if (!auth || !auth.payload.needs_code) { throw new Error("No login code is currently required. Update the Pi and reload content if needed."); }
+      if (!/^[0-9]{6}$/.test(body.code)) { throw new Error("Enter the 6-digit emailed code."); }
+      body = await encryptSettings({ code: body.code, challenge: auth.payload.challenge, expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString() }, auth.payload.encryption);
+      submittedBody = {};
+    }
     if (key === "settings") { body = await encryptSettings(body.changes); }
     if (key === "notices") { body = { message: body.message || "", notes: body.notes || [] }; }
     if (body.children) {
@@ -275,7 +296,7 @@
       } else if (!/\/(remote-import|remote-delete)$/.test(path)) {
         return Object.assign({}, items.find(function (item) { return path.endsWith("/" + item.id); }) || {}, body, result);
       }
-    } else if (key !== "settings") { result.settings = body; }
+    } else if (key !== "settings" && key !== "classdojoAuth") { result.settings = body; }
     return result;
   }
   function api(path, options) {
@@ -304,8 +325,8 @@
       return Promise.resolve(documentState.snapshot.resources.classOrder ? projected("classOrder") : { order: documentState.snapshot.bootstrap.classOrder || [], meta: documentState.snapshot.bootstrap.classMeta || {} });
     }
     if (path === "/api/classdojo/auth-status") {
-      return Promise.resolve({ needs_code: !!documentState.snapshot.bootstrap.classDojoNeedsCode,
-        message: "ClassDojo login codes and passwords are managed through Pi Connect." });
+      var auth = documentState.snapshot.resources.classdojoAuth;
+      return Promise.resolve(auth ? copy(auth.payload) : { needs_code: false, message: "Update the Pi to enable remote login codes." });
     }
     var key = resourceFor(path);
     if (key) {
@@ -377,7 +398,7 @@
     window.setInterval(poll, 20000);
     document.addEventListener("visibilitychange", function () { if (!document.hidden) { poll(); } });
     // Retain tabs and familiar layout, while making Pi-only controls unambiguous.
-    ["customPageList", "tvPowerOnNow", "classDojoCodeSection", "tvPowerRules"].forEach(function (id) {
+    ["customPageList", "tvPowerOnNow", "tvPowerRules"].forEach(function (id) {
       var section = document.getElementById(id).closest("section.admin-card");
       section.classList.add("remote-pi-only");
       section.querySelectorAll("button,input,select,textarea").forEach(function (control) { control.disabled = true; });
@@ -385,6 +406,11 @@
       section.prepend(note);
     });
     var mediaInput = document.getElementById("mediaUploadInput"); mediaInput.accept = "image/*";
+    document.getElementById("resetDojoAuth").disabled = true;
+    document.getElementById("resetDojoAuth").title = "Request a new login through Pi Connect";
+    var authNote = document.createElement("p"); authNote.className = "remote-section-note";
+    authNote.textContent = "Enter the latest emailed code here when requested. It is encrypted for the Pi and expires from the queue after five minutes. Wait for Code verified on Pi. Use Pi Connect to reset login or request a new code.";
+    document.getElementById("classDojoCodeSection").closest("section.admin-card").prepend(authNote);
     var mediaNote = document.createElement("p"); mediaNote.className = "remote-section-note";
     mediaNote.textContent = "Upload images from your phone, including lunch menus. Select the current menu and choose Replace image to keep its existing rotation and schedule. Uploads are resized to 2048 pixels and stored in the private content repository. Existing local images show placeholders. Wait for Applied on Pi, then Reload content before the next media edit.";
     document.getElementById("mediaUploadDropzone").closest("section.admin-card").prepend(mediaNote);
